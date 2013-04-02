@@ -197,7 +197,7 @@ sub crawl_and_create {
 				$r->{email_newsletter} = $new_agent->content =~ /($signup_rgx)/si ? "yes" : "no";
 
 				#do they have flash?
-				if $agent->content = ~ /AC_RunActiveContent.js/si) {
+				if ($agent->content = ~ /AC_RunActiveContent.js/si) {
 					$r->{flash} = "yes";
 				} else {
 					$r->{flash} = "no";
@@ -218,7 +218,7 @@ sub crawl_and_create {
 						$r->{fb_like} = $fb_like;
 					}
 
-					#die Dumper $r;
+					die Dumper $r;
 				}
 
 				#find twitter link and likes
@@ -230,7 +230,7 @@ sub crawl_and_create {
 					$r->{twitter} = "yes";
 					$r->{twitter_follower} = $followers;
 
-					#die Dumper $r;
+					die Dumper $r;
 				} else {
 					$r->{twitter} = "no"
 				}
@@ -591,7 +591,7 @@ sub find_fb_widget {
 		my $src = $1 if $link =~ /src=['"](.*?)['"]/i;
 		die unless $src;
 		
-		some sites put invalid unescaped so we have to unescape twice
+		#some sites put invalid unescaped so we have to unescape twice
 		my $fb_url = uri_unescape(uri_unescape($1)) if $src =~ /href=(.*?)(&|$)/i;
 		#die $src unless $fb_url;
 
@@ -661,7 +661,7 @@ sub find_tweet_widget {
 		_tag => 'a',
 		sub {
 			defined $_[0]->attr("href") &&
-			$_[0]->attr("href") =~ /twitter.com/i /		
+			$_[0]->attr("href") =~ /twitter.com/i 
 		}
 	);
 
