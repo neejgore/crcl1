@@ -190,22 +190,24 @@ sub crawl_and_create {
 			$log->debug("getting " . $r->{website});
 
 			$new_agent->get($r->{website});
-			
+			say $new_agent->status;
+			$new_agent->save_content("test.html");
 
-			if ($agent->success) {
+			
+			if ($new_agent->success) {
 				#do they have email newsletter signup box or something
 				$r->{email_newsletter} = $new_agent->content =~ /($signup_rgx)/si ? "yes" : "no";
 
 				#do they have flash?
-				if ($agent->content = ~ /AC_RunActiveContent.js/si) {
+				if ($new_agent->content =~ /AC_RunActiveContent.js/si) {
 					$r->{flash} = "yes";
 				} else {
 					$r->{flash} = "no";
 				}
 
 				#find facebook link and likes
-				my $fb_link = find_fb_widget($agent->content);
-				my $fb_id   = get_fb_id_or_url($fb_link);
+				my $fb_link = find_fb_widget($new_agent->content);
+				my $fb_id   = get_fb_id_or_url($fb_link) if $fb_link;
 
 				if (defined $fb_id) {
 					if ($fb_id =~ /^(http|www\.)/) {
@@ -217,25 +219,26 @@ sub crawl_and_create {
 						$r->{facebook} = "yes";
 						$r->{fb_like} = $fb_like;
 					}
-
-					die Dumper $r;
 				}
 
-				#find twitter link and likes
-				my $tweet_link = find_twitter_widget($agent->content);
-				my $tweet_id   = get_tweet_id($tweet_link);
+				$r->{facebook} = "no" unless $r->{facebook};
 
-				if ($tweet_id) {
+
+				#find twitter link and likes
+				my $tweet_link = find_tweet_widget($new_agent->content);
+				my $tweet_id   = get_tweet_id($tweet_link) if $tweet_link;
+	
+				if (defined $tweet_id) {
 					my $followers = twitter_follower($tweet_id);
 					$r->{twitter} = "yes";
 					$r->{twitter_follower} = $followers;
 
-					die Dumper $r;
 				} else {
 					$r->{twitter} = "no"
 				}
+
 			} else {
-				$log->error($agent->res->status_line);
+				$log->error($new_agent->res->status_line);
 			}
 		}
 		$table->create($r);
@@ -312,7 +315,7 @@ sub twitter_follower {
 
 sub likes_by_fql {
 	my $like_url = shift;
-
+	my $agent = WWW::Mechanize->new(autocheck => 1);
 	say $like_url;
 	$agent->get(
 		"https://api.facebook.com/method/fql.query?".
@@ -327,7 +330,7 @@ sub likes_by_fql {
 	say $agent->content;
 	my $json_like = decode_json($agent->content);
 
-	if (defined $json_like->{error_msg}) {
+	if (ref $json_like eq 'HASH' && defined $json_like->{error_msg}) {
 		$log->error($json_like->{error_msg});
 		return 0;
 	}
@@ -432,7 +435,7 @@ sub dump_to_csv {
 	$fn =~ s/:/_/g;
 
 	open my $fh, ">", "$Bin/../result/$fn.csv" or die $!;
-	my $rs = $table->search({location => $loc, desc => $desc, facebook => "yes"});
+	my $rs = $table->search({location => $loc, desc => $desc});
 
 	my @columns = $table->result_source->columns;
 	 
@@ -516,7 +519,7 @@ sub get_fb_token {
 
 
 	$agent->get($authorize_url);
-
+	say $authorize_url;
 	my $auth_code = $1 if $agent->base->as_string =~ /code=(.*)/i;
 	die "Error: no secret code returned for auth URL" unless $auth_code;
 
@@ -561,6 +564,8 @@ sub build_query {
 sub find_fb_widget {
 	my $content = shift;
 
+	#die;
+
 	if ($content =~ /<fb:like.*? href=["''](.*?)['"].*?>/si) {
 		return $1;
 	}
@@ -576,7 +581,6 @@ sub find_fb_widget {
 		return $fb_id;
 	}
 
-	
 	my @iframes = $node->look_down(
 		_tag => 'iframe',
 		sub { 
@@ -618,7 +622,9 @@ sub find_fb_widget {
 		_tag => "a",
 		sub {
 			defined $_[0]->attr("href") &&
-			$_[0]->attr("href") =~ /(www\.)?facebook.com\/*/
+			$_[0]->attr("href") =~ /(www\.)?facebook.com\/*/i
+
+			#$_[0]->attr("href") =~ /(www\.)?facebook.com\/.*/i
 		}
 	);
 
@@ -648,6 +654,7 @@ sub find_fb_widget {
 			return 0;
 		}
 	}
+	
 	return undef;
 }
 
@@ -666,13 +673,12 @@ sub find_tweet_widget {
 	);
 
 	for my $f (@links_1) {
-		next if $f->attr("href") !~ /home\/status\?/;
-		my $link = $f->as_HTML;
+		#next if $f->attr("href") !~ /home\/status\?/;
+		my $link = $f->attr("href");
 		$node->delete;
 		return $link;
 	}
 
-	die;
 	my @iframes = $node->look_down(
 		_tag => 'iframe',
 		sub { 
@@ -687,6 +693,6 @@ sub find_tweet_widget {
 		$node->delete;
 		return undef
 	}
-	
+	$node->delete;
 	return undef;
 }
