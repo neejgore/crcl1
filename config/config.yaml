@@ -1,0 +1,26 @@
+proxy:
+  - http://192.168.1.4:3000
+  - http://127.0.0.1:3000
+fb_pattern:
+  - http://www.facebook.com
+twitter_pattern:
+  - http://twitter.com
+subscriber_pattern:
+  - sign in
+signup_keywords:
+  - subscribe
+  - newsletter
+  - sign-up
+  - sign up
+fb:
+  app_id: 308393762623746
+  scope: publish_stream,offline_access
+  app_secret: 3a4b825931560c4b2b8e7ced76b23029
+  redirect_uri: http://www.facebook.com/connect/login_success.html
+  login_url: https://www.facebook.com/login.php
+  email: tester79@live.com
+  pass: marco111
+  access_token_url: https://graph.facebook.com/oauth/access_token
+  dialog_oauth: http://www.facebook.com/dialog/oauth
+  
+  

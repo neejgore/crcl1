@@ -1,0 +1,88 @@
+First thing, there are 7 directories inside the bundle:
+
+- bin
+- config
+- db
+- doc
+- lib
+- result
+- sql
+
+I have a plan why i need those directories, but i think i'll let you know later.
+
+You will find Makefile.PL in the top of application directory, run this script to build all dependencies, so:
+
+perl Makefile.PL
+(Its experimental)
+
+
+#About the script
+Basically you can run the script with:
+perl perl scrape-yelp.pl --loc "San Francisco, CA" --desc "boutique"
+
+or just to find a litle help about options, you can run --help
+
+[zak@localhost bin]$ perl scrape-yelp.pl 
+--desc is a mandatory
+Usage:
+      perl scrape-yelp.pl [options]
+
+      Options:
+      -h                  this message
+      -proxy              not implemented yet
+      -delay              pause between request, default to 3 seconds
+      -loc                location
+      -desc               keywords
+      -dump               dump to csv
+
+      example: 
+      perl scrape-yelp.pl --loc "San Francisco, CA" --desc "boutique" --delay 4
+
+
+
+#how to dump to csv
+add --dump inside shell argument, so its like:
+
+perl scrape-yelp.pl --loc "San Francisco, CA" --desc "boutique" --dump
+
+Script will dump for all records that match query (--loc and --desc), the result will be saved inside directory "../result"
+
+
+
+
+
+
+
+cpanm Getopt::Long
+cpanm Pod::Usage
+cpanm WWW::Mechanize
+cpanm YAML
+cpanm Web::Scraper
+cpanm FindBin
+cpanm JSON::XS
+cpanm Text::CSV_XS
+cpanm DateTime
+
+
+#IGNORE THIS NOTE (Developer only)
+#create db and table
+CREATE TABLE yelp(
+  id INTEGER PRIMARY KEY,
+  address text,
+  category text,
+  neighborhood text,
+  rating FLOAT,
+  phone text,
+  review text,
+  facebook text,
+  fb_like integer, 
+  url text, 
+  title text, 
+  website text, 
+  desc text, 
+  location text
+ );
+
+#How to Generate Schema (pending)
+perl -MDBIx::Class::Schema::Loader=make_schema_at,dump_to_dir:lib -e 'make_schema_at("Yelp::DB::Schema", { debug => 1, components => ["TimeStamp"],overwrite_modifications => 0},[ "dbi:SQLite:dbname=db/yelp.sqlite3"])'
+
