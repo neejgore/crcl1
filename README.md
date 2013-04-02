@@ -13,6 +13,26 @@
   perl scrape-yelp.pl --loc "San Francisco, CA" --desc "boutique" --delay 4
 </pre>
 
+#How to deploy this app to your environment
+
+<pre>
+$ git clone https://github.com/neejgore/crcl1.git
+Cloning into crcl1...
+remote: Counting objects: 36, done.
+remote: Compressing objects: 100% (21/21), done.
+remote: Total 36 (delta 7), reused 33 (delta 4)
+Unpacking objects: 100% (36/36), done.
+
+
+$ cd crcl1
+$ cpanm --sudo .
+
+$ cd bin
+
+$ perl scrape-yelp.pl --loc "San Francisco, CA" --desc "boutique" --delay 4
+</pre>
+
+
 
 #Description
 
