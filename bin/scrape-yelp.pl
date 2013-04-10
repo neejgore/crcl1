@@ -77,7 +77,7 @@ B<Note:>  You can also dump from database to csv format with <code>--dump</code>
 =cut
 
 
-my ($help, $proxy, $delay, $loc, $desc, $dump);
+my ($help, $proxy, $delay, $loc, $desc, $dump, $start);
 
 GetOptions(
   "help|?"    => \$help,
@@ -85,7 +85,8 @@ GetOptions(
   "delay|d=i" => \$delay,
   "loc=s"     => \$loc,
   "desc=s"    => \$desc,
-  "dump"      => \$dump
+  "dump"      => \$dump,
+  "start=i"     => \$start
 );
 
 pod2usage(1) if $help;
@@ -95,6 +96,12 @@ pod2usage("--loc is a mandatory") unless $loc;
 my $cfg   = YAML::LoadFile("$Bin/../config/config.yaml");
 my $base  = "http://www.yelp.com";
 my $fb    = Facebook::Graph->new;  
+
+$start = 0 unless $start;
+if ($start > 0) {
+	$start *=  10;
+}
+
 
 $delay    = 3 unless $delay;
 my $agent = WWW::Mechanize->new(autocheck => 0);
@@ -122,7 +129,7 @@ unless ($agent->success) {
 	die;
 }
 
-$agent->get("http://www.yelp.com/search?find_desc=$desc&find_loc=$loc&ns=1");
+$agent->get("http://www.yelp.com/search?find_desc=$desc&find_loc=$loc&ns=1&start=$start");
 
 unless ($agent->success) {
 	$log->error($agent->res->status_line);
@@ -133,22 +140,22 @@ my $mini_crawler = mini_crawler();
 my $res = $mini_crawler->scrape($agent->content);
 crawl_and_create($res);
 
-my $page = 2;
-while ($agent->find_link(text_regex => qr/next/i)) {
-	$agent->follow_link(text_regex => qr/next/i);
+while ($agent->find_link(text_regex => qr/next/i, id => 'pager_page_next')) {
+	$agent->follow_link(text_regex => qr/next/i, id => 'pager_page_next');
 
 	unless ($agent->success) {
-		$log->error("following page $page is failed: " . $agent->res->status_line);
+		$log->error("starting at $start is failed: " . $agent->res->status_line);
 		die;
 	}
+	$agent->save_content("page_$start.html");
 
-	say "following page: $page";
+	say "starting at : $start";
 	my $res = $mini_crawler->scrape($agent->content);
 	
 	#getting fb, tweet and more info
 	crawl_and_create($res);
-
-	$page++;
+	#die;
+	$start +=10;
 	sleep $delay;
 }
 
