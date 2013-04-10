@@ -261,7 +261,8 @@ sub get_tweet_id {
 	}elsif($link =~ /(\w+)\/following$/i) {
 		return $1;
 	} else {
-		die $link;
+		$log->warn("Unknown twitter pattern, $link");
+		return undef;
 	}
 }
 
