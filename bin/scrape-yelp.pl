@@ -147,7 +147,7 @@ while ($agent->find_link(text_regex => qr/next/i, id => 'pager_page_next')) {
 		$log->error("starting at $start is failed: " . $agent->res->status_line);
 		die;
 	}
-	$agent->save_content("page_$start.html");
+    #$agent->save_content("page_$start.html");
 
 	say "starting at : $start";
 	my $res = $mini_crawler->scrape($agent->content);
@@ -164,7 +164,7 @@ sub crawl_and_create {
 	my $res = shift;
 	for my $r (@{$res->{list}}) {
 		say $r->{url};
-		my $rs = $table->search({url => $r->{url}},{rows => 1})->single;
+		my $rs = $table->search({url => $r->{url},desc => $desc},{rows => 1})->single;
 
 		next if $rs;
 
