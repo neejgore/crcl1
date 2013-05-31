@@ -16,6 +16,7 @@ use URI;
 use URI::Escape;
 use Facebook::Graph;
 use Log::Any::App '$log', -screen => 1, -file => "$Bin/scrape-yelp.log", -level => "debug";
+use HTML::Entities;
 
 =head1 NAME
 
@@ -98,9 +99,7 @@ my $base  = "http://www.yelp.com";
 my $fb    = Facebook::Graph->new;  
 
 $start = 0 unless $start;
-if ($start > 0) {
-	$start *=  10;
-}
+if ($start > 0) {	$start *=  10 }
 
 
 $delay    = 3 unless $delay;
@@ -138,23 +137,23 @@ unless ($agent->success) {
 
 my $mini_crawler = mini_crawler();
 my $res = $mini_crawler->scrape($agent->content);
+
 crawl_and_create($res);
 
-while ($agent->find_link(text_regex => qr/next/i, id => 'pager_page_next')) {
-	$agent->follow_link(text_regex => qr/next/i, id => 'pager_page_next');
+while ($agent->find_link(text => decode_entities('&rarr;'), class => 'page-option prev-next')) {
+	$agent->follow_link(text => decode_entities('&rarr;'), class => 'page-option prev-next');
 
 	unless ($agent->success) {
 		$log->error("starting at $start is failed: " . $agent->res->status_line);
 		die;
 	}
-    #$agent->save_content("page_$start.html");
 
 	say "starting at : $start";
 	my $res = $mini_crawler->scrape($agent->content);
 	
 	#getting fb, tweet and more info
 	crawl_and_create($res);
-	#die;
+	
 	$start +=10;
 	sleep $delay;
 }
@@ -248,6 +247,7 @@ sub crawl_and_create {
 				$log->error($new_agent->res->status_line);
 			}
 		}
+		
 		$table->create($r);
 	}
 }
@@ -388,47 +388,34 @@ sub maxi_crawler {
 
 sub mini_crawler {
 	scraper {
-		process '//div[@class="businessresult clearfix"]', "list[]" => scraper{
-			process '//div[@class="media-story"]/h4/a', 'title' => sub {
+		process '//div[@class="search-result natural-search-result"]', "list[]" => scraper {
+			process '//div[@class="media-story"]/h3/span/a', 'title' => sub {
 				my $title = $_[0]->as_text;
 				$title =~ s/(^\d+\.\s+|\s+$)//g;
 				$title;
 			};
-			process '//div[@class="media-story"]/h4/a', 'url' => '@href',
+			process '//div[@class="media-story"]/h3/span/a', 'url' => '@href';
 
-			process '//div[@class="media-story"]/div[@class="itemcategories"]', 'category' => sub {
-				my $cat = $_[0]->as_text;
-				$cat      =~ s/(^\s+Category:\s+|\s+$)//g;
-				$cat;
-			};
-			process '//div[@class="media-story"]/div[@class="itemneighborhoods"]', 'neighborhood' => sub {
-				my $neighbor = $_[0]->as_text;
-				
-				$neighbor =~ s/(^\s+Neighborhood:\s+|\s+$)//g;
-				$neighbor;
-
-			};
-
-			process '//div[@class="rating"]/i', 'rating' => sub {
+			process '//span[@class="category-str-list"]', 'category' => 'TEXT';
+			process '//span[@class="neighborhood-str-list"]', 'neighborhood' => "TEXT";
+			process '//div[@class="rating-large"]/i', 'rating' => sub {
 				my $rating = $1 if $_[0]->attr("title") =~ /(\d+\.\d+)/;
 				$rating;
-			
 			};
-
-			process '//span[@class="reviews"]', 'review' => sub {
+			process '//span[@class="review-count"]', 'review' => sub {
 				my $text = $1 if $_[0]->as_text =~ /(\d+)/;
 				$text;
 			};
 
-			process '//address/div', 'address' => sub {
+			process '//address', 'address' => sub {
 				my $html = $_[0]->as_HTML;
 				$html =~ s/<br \/>/, /g;
-				$html =~ s/<\/?div>//g;
+				$html =~ s/<\/?address>//g;
 				$html =~ s/(^\s+|\s+$)//g;
 				
 				$html;
 			};
-			process '//address/div[@class="phone"]', 'phone' => sub {
+			process '//span[@class="biz-phone"]', 'phone' => sub {
 				my $text = $_[0]->as_text;
 				$text =~ s/(^\s+|\s+$)//g;
 				$text;
