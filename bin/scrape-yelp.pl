@@ -588,7 +588,7 @@ sub find_fb_widget {
 		my $link = $f->as_HTML;
 
 		my $src = $1 if $link =~ /src=['"](.*?)['"]/i;
-		die unless $src;
+		return undef unless $src;
 		
 		#some sites put invalid unescaped so we have to unescape twice
 		my $fb_url = uri_unescape(uri_unescape($1)) if $src =~ /href=(.*?)(&|$)/i;
