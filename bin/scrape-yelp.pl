@@ -99,7 +99,7 @@ my $base  = "http://www.yelp.com";
 my $fb    = Facebook::Graph->new;  
 
 $start = 0 unless $start;
-if ($start > 0) {	$start *=  10 }
+if ($start > 0) { $start *=  10 }
 
 
 $delay    = 3 unless $delay;
@@ -124,15 +124,15 @@ $log->debug("finding $desc in $loc");
 $agent->get($base);
 
 unless ($agent->success) {
-	$log->error($agent->res->status_line);
-	die;
+  $log->error($agent->res->status_line);
+  die;
 }
 
 $agent->get("http://www.yelp.com/search?find_desc=$desc&find_loc=$loc&ns=1&start=$start");
 
 unless ($agent->success) {
-	$log->error($agent->res->status_line);
-	die;
+  $log->error($agent->res->status_line);
+  die;
 }
 
 my $mini_crawler = mini_crawler();
@@ -141,307 +141,307 @@ my $res = $mini_crawler->scrape($agent->content);
 crawl_and_create($res);
 
 while ($agent->find_link(text => decode_entities('&rarr;'), class => 'page-option prev-next')) {
-	$agent->follow_link(text => decode_entities('&rarr;'), class => 'page-option prev-next');
+  $agent->follow_link(text => decode_entities('&rarr;'), class => 'page-option prev-next');
 
-	unless ($agent->success) {
-		$log->error("starting at $start is failed: " . $agent->res->status_line);
-		die;
-	}
+  unless ($agent->success) {
+    $log->error("starting at $start is failed: " . $agent->res->status_line);
+    die;
+  }
 
-	say "starting at : $start";
-	my $res = $mini_crawler->scrape($agent->content);
-	
-	#getting fb, tweet and more info
-	crawl_and_create($res);
-	
-	$start +=10;
-	sleep $delay;
+  say "starting at : $start";
+  my $res = $mini_crawler->scrape($agent->content);
+  
+  #getting fb, tweet and more info
+  crawl_and_create($res);
+  
+  $start +=10;
+  sleep $delay;
 }
 
 
 sub crawl_and_create {
-	my $res = shift;
-	for my $r (@{$res->{list}}) {
-		say $r->{url};
-		my $rs = $table->search({url => $r->{url},desc => $desc},{rows => 1})->single;
+  my $res = shift;
+  for my $r (@{$res->{list}}) {
+    say $r->{url};
+    my $rs = $table->search({url => $r->{url},desc => $desc},{rows => 1})->single;
 
-		next if $rs;
+    next if $rs;
 
-		#add desc and loc to hash
-		$r->{desc} = $desc;
-		$r->{location} = $loc;
+    #add desc and loc to hash
+    $r->{desc} = $desc;
+    $r->{location} = $loc;
 
-		my $page = $base . $r->{url};
+    my $page = $base . $r->{url};
 
-		my $new_agent = WWW::Mechanize->new(autocheck => 0);
-		$new_agent->proxy(['http', 'ftp'], $cfg->{proxy}[0]) if $proxy;
+    my $new_agent = WWW::Mechanize->new(autocheck => 0);
+    $new_agent->proxy(['http', 'ftp'], $cfg->{proxy}[0]) if $proxy;
 
-		
-		sleep $delay;
-		
-		$new_agent->get($page);
+    
+    sleep $delay;
+    
+    $new_agent->get($page);
 
-		unless ($new_agent->success) {
-			$log->error($new_agent->res->status_line);
-			return;	
-		}
-		
-
-
-		my $detail = maxi_crawler()->scrape($new_agent->content);
-
-		if ($detail->{website}) {
-			$r->{website} = $detail->{website};
-
-			$log->debug("getting " . $r->{website});
-
-			$new_agent->get($r->{website});
-			say $new_agent->status;
-			$new_agent->save_content("test.html");
-
-			
-			if ($new_agent->success) {
-				#do they have email newsletter signup box or something
-				$r->{email_newsletter} = $new_agent->content =~ /($signup_rgx)/si ? "yes" : "no";
-
-				#do they have flash?
-				if ($new_agent->content =~ /AC_RunActiveContent.js/si) {
-					$r->{flash} = "yes";
-				} else {
-					$r->{flash} = "no";
-				}
-
-				#find facebook link and likes
-				my $fb_link = find_fb_widget($new_agent->content);
-				my $fb_id   = get_fb_id_or_url($fb_link) if $fb_link;
-
-				if (defined $fb_id) {
-					if ($fb_id =~ /^(http|www\.)/) {
-						my $fb_like = likes_by_fql($fb_id);
-						$r->{facebook} = "yes";
-						$r->{fb_like} = $fb_like;
-					} else {
-						my $fb_like = fb_like($fb_id);
-						$r->{facebook} = "yes";
-						$r->{fb_like} = $fb_like;
-					}
-				}
-
-				$r->{facebook} = "no" unless $r->{facebook};
+    unless ($new_agent->success) {
+      $log->error($new_agent->res->status_line);
+      return; 
+    }
+    
 
 
-				#find twitter link and likes
-				my $tweet_link = find_tweet_widget($new_agent->content);
-				my $tweet_id   = get_tweet_id($tweet_link) if $tweet_link;
-	
-				if (defined $tweet_id) {
-					my $followers = twitter_follower($tweet_id);
-					$r->{twitter} = "yes";
-					$r->{twitter_follower} = $followers;
+    my $detail = maxi_crawler()->scrape($new_agent->content);
+    
+    if ($detail->{website}) {
+      $r->{website} = $detail->{website};
 
-				} else {
-					$r->{twitter} = "no"
-				}
+      $log->debug("getting " . $r->{website});
 
-			} else {
-				$log->error($new_agent->res->status_line);
-			}
-		}
-		
-		$table->create($r);
-	}
+      $new_agent->get($r->{website});
+      say $new_agent->status;
+      $new_agent->save_content("test.html");
+
+      
+      if ($new_agent->success) {
+        #do they have email newsletter signup box or something
+        $r->{email_newsletter} = $new_agent->content =~ /($signup_rgx)/si ? "yes" : "no";
+
+        #do they have flash?
+        if ($new_agent->content =~ /AC_RunActiveContent.js/si) {
+          $r->{flash} = "yes";
+        } else {
+          $r->{flash} = "no";
+        }
+
+        #find facebook link and likes
+        my $fb_link = find_fb_widget($new_agent->content);
+        my $fb_id   = get_fb_id_or_url($fb_link) if $fb_link;
+
+        if (defined $fb_id) {
+          if ($fb_id =~ /^(http|www\.)/) {
+            my $fb_like = likes_by_fql($fb_id);
+            $r->{facebook} = "yes";
+            $r->{fb_like} = $fb_like;
+          } else {
+            my $fb_like = fb_like($fb_id);
+            $r->{facebook} = "yes";
+            $r->{fb_like} = $fb_like;
+          }
+        }
+
+        $r->{facebook} = "no" unless $r->{facebook};
+
+
+        #find twitter link and likes
+        my $tweet_link = find_tweet_widget($new_agent->content);
+        my $tweet_id   = get_tweet_id($tweet_link) if $tweet_link;
+  
+        if (defined $tweet_id) {
+          my $followers = twitter_follower($tweet_id);
+          $r->{twitter} = "yes";
+          $r->{twitter_follower} = $followers;
+
+        } else {
+          $r->{twitter} = "no"
+        }
+
+      } else {
+        $log->error($new_agent->res->status_line);
+      }
+    }
+    
+    $table->create($r);
+  }
 }
 
 sub get_tweet_id {
-	my $link = shift;
+  my $link = shift;
 
-	if ($link =~ /\/share$/i) { return undef }
+  if ($link =~ /\/share$/i) { return undef }
 
-	if ($link =~ /twitter.com\/(@?\w+(\.\w+)?)\/?$/i) {
-		return $1;
-	}elsif($link =~ /twitter.com\/#!\/(\w+)\/?$/i) {
-		return $1;
-	}elsif($link =~ /twitter.com\/#%21\/(\w+)\/?$/i) {
-		return $1;
-	}elsif($link =~ /(\w+)\/status\/\d+$/i) {
-		return $1;
-	}elsif($link =~ /(\w+)\/following$/i) {
-		return $1;
-	} else {
-		$log->warn("Unknown twitter pattern, $link");
-		return undef;
-	}
+  if ($link =~ /twitter.com\/(@?\w+(\.\w+)?)\/?$/i) {
+    return $1;
+  }elsif($link =~ /twitter.com\/#!\/(\w+)\/?$/i) {
+    return $1;
+  }elsif($link =~ /twitter.com\/#%21\/(\w+)\/?$/i) {
+    return $1;
+  }elsif($link =~ /(\w+)\/status\/\d+$/i) {
+    return $1;
+  }elsif($link =~ /(\w+)\/following$/i) {
+    return $1;
+  } else {
+    $log->warn("Unknown twitter pattern, $link");
+    return undef;
+  }
 }
 
 sub get_fb_id_or_url {
-	my $link = shift;
+  my $link = shift;
 
-	return $link if $link !~ /facebook\.com/i;
+  return $link if $link !~ /facebook\.com/i;
 
-	if ($link =~ /facebook.com\/(\w+)\/?$/i) {
-		return $1;
-	}elsif($link =~ /facebook.com\/(\w+)\?/i) {
-		return $1;
-	} elsif ($link =~ /facebook.com\/(\w+\.\w+(.\w+)?)\/?$/i) {
-		return $1;
-		
-	} elsif ($link =~ /pages\/.*?\/(\d+)\??/i) {
+  if ($link =~ /facebook.com\/(\w+)\/?$/i) {
+    return $1;
+  }elsif($link =~ /facebook.com\/(\w+)\?/i) {
+    return $1;
+  } elsif ($link =~ /facebook.com\/(\w+\.\w+(.\w+)?)\/?$/i) {
+    return $1;
+    
+  } elsif ($link =~ /pages\/.*?\/(\d+)\??/i) {
 
-		return $1;
-	} elsif ($link =~ /facebook.com\/home.php\?.*?\/pages\/.*?\/(\d+)\??/i) {
-		return $1;
-	} elsif ($link =~ /facebook.com\/home.php\??(#!|%21)\/pages\/.*?\/(\d+)\??/i) {
-		return $1;
-	} elsif ($link =~ /facebook.com\/sharer.php\?u=(.*)&/i) {
-		
-		return uri_unescape($1);
-	} elsif ($link =~ /facebook.com\/share.php\?u=(.*)(&|)/i) {
-		
-		return uri_unescape($1);
-	} else {
-		return undef;
-	}
+    return $1;
+  } elsif ($link =~ /facebook.com\/home.php\?.*?\/pages\/.*?\/(\d+)\??/i) {
+    return $1;
+  } elsif ($link =~ /facebook.com\/home.php\??(#!|%21)\/pages\/.*?\/(\d+)\??/i) {
+    return $1;
+  } elsif ($link =~ /facebook.com\/sharer.php\?u=(.*)&/i) {
+    
+    return uri_unescape($1);
+  } elsif ($link =~ /facebook.com\/share.php\?u=(.*)(&|)/i) {
+    
+    return uri_unescape($1);
+  } else {
+    return undef;
+  }
 }
 
 
 sub twitter_follower {
-	my $user = shift;
+  my $user = shift;
 
-	my $agent = WWW::Mechanize->new(autocheck => 0);
-	$agent->proxy(['http', 'ftp'], $cfg->{proxy}[0]) if $proxy;
+  my $agent = WWW::Mechanize->new(autocheck => 0);
+  $agent->proxy(['http', 'ftp'], $cfg->{proxy}[0]) if $proxy;
 
-	$agent->get("https://api.twitter.com/1/users/show.json?screen_name=$user&include_entities=true");
+  $agent->get("https://api.twitter.com/1/users/show.json?screen_name=$user&include_entities=true");
 
-	my $info = decode_json($agent->content);
-	
-	if (defined $info->{errors}[0]{message}) {
-		say join ", ", $info->{errors}[0]{message};
-	} else {
-		return $info->{followers_count} if defined $info->{followers_count}
-	}
+  my $info = decode_json($agent->content);
+  
+  if (defined $info->{errors}[0]{message}) {
+    say join ", ", $info->{errors}[0]{message};
+  } else {
+    return $info->{followers_count} if defined $info->{followers_count}
+  }
 }
 
 sub likes_by_fql {
-	my $like_url = shift;
-	my $agent = WWW::Mechanize->new(autocheck => 1);
-	say $like_url;
-	$agent->get(
-		"https://api.facebook.com/method/fql.query?".
-		"query=select like_count,total_count from link_stat ".
-		"where url='$like_url'&format=json");
+  my $like_url = shift;
+  my $agent = WWW::Mechanize->new(autocheck => 1);
+  say $like_url;
+  $agent->get(
+    "https://api.facebook.com/method/fql.query?".
+    "query=select like_count,total_count from link_stat ".
+    "where url='$like_url'&format=json");
 
-	unless ($agent->success) {
-		$log->error($agent->res->status_line);
-		die;
-	}
+  unless ($agent->success) {
+    $log->error($agent->res->status_line);
+    die;
+  }
 
-	say $agent->content;
-	my $json_like = decode_json($agent->content);
+  say $agent->content;
+  my $json_like = decode_json($agent->content);
 
-	if (ref $json_like eq 'HASH' && defined $json_like->{error_msg}) {
-		$log->error($json_like->{error_msg});
-		return 0;
-	}
+  if (ref $json_like eq 'HASH' && defined $json_like->{error_msg}) {
+    $log->error($json_like->{error_msg});
+    return 0;
+  }
 
-	unless (@$json_like) {
-		$log->error("search of $like_url return nil");
-		return 0;
-	}
+  unless (@$json_like) {
+    $log->error("search of $like_url return nil");
+    return 0;
+  }
 
-	return $json_like->[0]{total_count} || 0;
+  return $json_like->[0]{total_count} || 0;
 }
 
 
 sub fb_like {
-	my $id = shift;
-	my $user= eval{$fb->fetch($id);};
-	if ($@) {
-		$log->error("$@");
-		return 0;
-	}
+  my $id = shift;
+  my $user= eval{$fb->fetch($id);};
+  if ($@) {
+    $log->error("$@");
+    return 0;
+  }
 
-	if ($user->{error}) {
-		if (defined $user->{error}{message} && $user->{error}{message} =~ /(Session has expired|The session has been invalidated|Error validating access token|The session is invalid)/i) {
-			$log->warn("$id : " . $user->{error}{message} );		
-			get_fb_token();	
-			fb_like($id);	
-		}else{
-			die $user;
-		}
-	} else {
+  if ($user->{error}) {
+    if (defined $user->{error}{message} && $user->{error}{message} =~ /(Session has expired|The session has been invalidated|Error validating access token|The session is invalid)/i) {
+      $log->warn("$id : " . $user->{error}{message} );    
+      get_fb_token(); 
+      fb_like($id); 
+    }else{
+      die $user;
+    }
+  } else {
 
-		return $user->{likes} if defined $user->{likes};
-		return 0;
+    return $user->{likes} if defined $user->{likes};
+    return 0;
 
-	}
+  }
 }
 
 sub maxi_crawler {
-	scraper { 
-		process '//div[@id="bizUrl"]/a', 'website' => sub {
-			if (defined $_[0]->attr("href") && $_[0]->attr("href") =~ /url=(.*?)&/) {
-				return uri_unescape($1);
-			}
-		};
-	};
+  scraper { 
+    process '//div[@id="bizUrl"]/a', 'website' => sub {
+      if (defined $_[0]->attr("href") && $_[0]->attr("href") =~ /url=(.*?)&/) {
+        return uri_unescape($1);
+      }
+    };
+  };
 }
 
 sub mini_crawler {
-	scraper {
-		process '//div[@class="search-result natural-search-result"]', "list[]" => scraper {
-			process '//div[@class="media-story"]/h3/span/a', 'title' => sub {
-				my $title = $_[0]->as_text;
-				$title =~ s/(^\d+\.\s+|\s+$)//g;
-				$title;
-			};
-			process '//div[@class="media-story"]/h3/span/a', 'url' => '@href';
+  scraper {
+    process '//ul[@class="ylist ylist-bordered search-results"]/li', "list[]" => scraper {
+      process '//div[@class="media-story"]/h3/span/a', 'title' => sub {
+        my $title = $_[0]->as_text;
+        $title =~ s/(^\d+\.\s+|\s+$)//g;
+        $title;
+      };
+      process '//div[@class="media-story"]/h3/span/a', 'url' => '@href';
 
-			process '//span[@class="category-str-list"]', 'category' => 'TEXT';
-			process '//span[@class="neighborhood-str-list"]', 'neighborhood' => "TEXT";
-			process '//div[@class="rating-large"]/i', 'rating' => sub {
-				my $rating = $1 if $_[0]->attr("title") =~ /(\d+\.\d+)/;
-				$rating;
-			};
-			process '//span[@class="review-count"]', 'review' => sub {
-				my $text = $1 if $_[0]->as_text =~ /(\d+)/;
-				$text;
-			};
+      process '//span[@class="category-str-list"]', 'category' => 'TEXT';
+      process '//span[@class="neighborhood-str-list"]', 'neighborhood' => "TEXT";
+      process '//div[@class="rating-large"]/i', 'rating' => sub {
+        my $rating = $1 if $_[0]->attr("title") =~ /(\d+\.\d+)/;
+        $rating;
+      };
+      process '//span[@class="review-count"]', 'review' => sub {
+        my $text = $1 if $_[0]->as_text =~ /(\d+)/;
+        $text;
+      };
 
-			process '//address', 'address' => sub {
-				my $html = $_[0]->as_HTML;
-				$html =~ s/<br \/>/, /g;
-				$html =~ s/<\/?address>//g;
-				$html =~ s/(^\s+|\s+$)//g;
-				
-				$html;
-			};
-			process '//span[@class="biz-phone"]', 'phone' => sub {
-				my $text = $_[0]->as_text;
-				$text =~ s/(^\s+|\s+$)//g;
-				$text;
-			}
-		};
-	};
+      process '//address', 'address' => sub {
+        my $html = $_[0]->as_HTML;
+        $html =~ s/<br \/>/, /g;
+        $html =~ s/<\/?address>//g;
+        $html =~ s/(^\s+|\s+$)//g;
+        
+        $html;
+      };
+      process '//span[@class="biz-phone"]', 'phone' => sub {
+        my $text = $_[0]->as_text;
+        $text =~ s/(^\s+|\s+$)//g;
+        $text;
+      }
+    };
+  };
 }
 
 sub dump_to_csv {
-	my $fn = DateTime->now->datetime;
-	my $csv = Text::CSV_XS->new({binary => 1, sep_char => ",", eol => "\n"});
-	$fn =~ s/:/_/g;
+  my $fn = DateTime->now->datetime;
+  my $csv = Text::CSV_XS->new({binary => 1, sep_char => ",", eol => "\n"});
+  $fn =~ s/:/_/g;
 
-	open my $fh, ">", "$Bin/../result/$fn.csv" or die $!;
-	my $rs = $table->search({location => $loc, desc => $desc});
+  open my $fh, ">", "$Bin/../result/$fn.csv" or die $!;
+  my $rs = $table->search({location => $loc, desc => $desc});
 
-	my @columns = $table->result_source->columns;
-	 
-	$csv->print($fh, \@columns);
-	while (my $row = $rs->next) {
-		my @rows = map { $row->$_ } @columns;
-		$csv->print($fh, \@rows);
+  my @columns = $table->result_source->columns;
+   
+  $csv->print($fh, \@columns);
+  while (my $row = $rs->next) {
+    my @rows = map { $row->$_ } @columns;
+    $csv->print($fh, \@rows);
 
-	}
-	say "Dump done";
-	exit;
+  }
+  say "Dump done";
+  exit;
 }
 
 
@@ -485,53 +485,53 @@ B<If any steps above is failed then the script will (should) die !!!!>
 =cut
 
 sub get_fb_token {
-	$log->debug("Getting new FB Access Token");
-	my $cfg_fb = $cfg->{fb};
+  $log->debug("Getting new FB Access Token");
+  my $cfg_fb = $cfg->{fb};
 
-	#create new mech's object
-	my $agent = WWW::Mechanize->new();
-	$agent->proxy(['http', 'ftp'], $cfg->{proxy}[0]) if $proxy;
-	$agent->agent_alias("Linux Mozilla");
-	
-	my $authorize_url = build_query(
-		$cfg_fb->{dialog_oauth},
-  		client_id    => $cfg_fb->{app_id},
-  		redirect_uri => $cfg_fb->{redirect_uri},
-  		scope        => $cfg_fb->{scope}
-  	);
-  	$log->debug("auth url: $authorize_url");
-	say "$authorize_url";
-
-
-	#login before GET authorize_url
-	$agent->get($cfg_fb->{login_url});
-	$agent->submit_form(
-  		fields => {
-    		email => $cfg_fb->{email},
-    		pass =>  $cfg_fb->{pass}
-  		}
-	);
-
-
-	$agent->get($authorize_url);
-	say $authorize_url;
-	my $auth_code = $1 if $agent->base->as_string =~ /code=(.*)/i;
-	die "Error: no secret code returned for auth URL" unless $auth_code;
-
-	my $access_token_url = build_query(
-		$cfg_fb->{access_token_url},
-		client_id     => $cfg_fb->{app_id},
-  		redirect_uri  => $cfg_fb->{redirect_uri},
-		client_secret => $cfg_fb->{app_secret},
-	    code          => $auth_code
-	);
+  #create new mech's object
+  my $agent = WWW::Mechanize->new();
+  $agent->proxy(['http', 'ftp'], $cfg->{proxy}[0]) if $proxy;
+  $agent->agent_alias("Linux Mozilla");
   
-	$agent->get($access_token_url);
-	my $access_token = $1 if $agent->content =~ /access_token=(.*?)&/;
+  my $authorize_url = build_query(
+    $cfg_fb->{dialog_oauth},
+      client_id    => $cfg_fb->{app_id},
+      redirect_uri => $cfg_fb->{redirect_uri},
+      scope        => $cfg_fb->{scope}
+    );
+    $log->debug("auth url: $authorize_url");
+  say "$authorize_url";
 
-	die "no access token found\n" unless $access_token;
 
-	$fb->access_token($access_token);
+  #login before GET authorize_url
+  $agent->get($cfg_fb->{login_url});
+  $agent->submit_form(
+      fields => {
+        email => $cfg_fb->{email},
+        pass =>  $cfg_fb->{pass}
+      }
+  );
+
+
+  $agent->get($authorize_url);
+  say $authorize_url;
+  my $auth_code = $1 if $agent->base->as_string =~ /code=(.*)/i;
+  die "Error: no secret code returned for auth URL" unless $auth_code;
+
+  my $access_token_url = build_query(
+    $cfg_fb->{access_token_url},
+    client_id     => $cfg_fb->{app_id},
+      redirect_uri  => $cfg_fb->{redirect_uri},
+    client_secret => $cfg_fb->{app_secret},
+      code          => $auth_code
+  );
+  
+  $agent->get($access_token_url);
+  my $access_token = $1 if $agent->content =~ /access_token=(.*?)&/;
+
+  die "no access token found\n" unless $access_token;
+
+  $fb->access_token($access_token);
 }
 
 
@@ -549,145 +549,145 @@ this soon (as we have WWW::Mechanize and we can do it with Mechanize Not URI)
 =cut
 
 sub build_query {
-	my $uri = URI->new(shift);
-	$uri->query_form(@_);
-	return $uri->as_string;
+  my $uri = URI->new(shift);
+  $uri->query_form(@_);
+  return $uri->as_string;
 }
 
 
 
 sub find_fb_widget {
-	my $content = shift;
+  my $content = shift;
 
-	#die;
+  #die;
 
-	if ($content =~ /<fb:like.*? href=["''](.*?)['"].*?>/si) {
-		return $1;
-	}
+  if ($content =~ /<fb:like.*? href=["''](.*?)['"].*?>/si) {
+    return $1;
+  }
 
-	my $node = HTML::TreeBuilder->new;
-	$node->parse($content);
+  my $node = HTML::TreeBuilder->new;
+  $node->parse($content);
 
-	my @fb_html5 = $node->find_by_attribute(class => "fb-like");
+  my @fb_html5 = $node->find_by_attribute(class => "fb-like");
 
-	for my $key (@fb_html5) {
-		my $fb_id = $key->attr("data-href");
-		$node->delete;
-		return $fb_id;
-	}
+  for my $key (@fb_html5) {
+    my $fb_id = $key->attr("data-href");
+    $node->delete;
+    return $fb_id;
+  }
 
-	my @iframes = $node->look_down(
-		_tag => 'iframe',
-		sub { 
-			defined $_[0]->attr("src") && 
-			$_[0]->attr("src") =~ /(www\.)?facebook.com\/plugins\/like\.php/
-		}
-	);
+  my @iframes = $node->look_down(
+    _tag => 'iframe',
+    sub { 
+      defined $_[0]->attr("src") && 
+      $_[0]->attr("src") =~ /(www\.)?facebook.com\/plugins\/like\.php/
+    }
+  );
 
-	for my $f (@iframes) {
-		my $link = $f->as_HTML;
+  for my $f (@iframes) {
+    my $link = $f->as_HTML;
 
-		my $src = $1 if $link =~ /src=['"](.*?)['"]/i;
-		return undef unless $src;
-		
-		#some sites put invalid unescaped so we have to unescape twice
-		my $fb_url = uri_unescape(uri_unescape($1)) if $src =~ /href=(.*?)(&|$)/i;
-		#die $src unless $fb_url;
+    my $src = $1 if $link =~ /src=['"](.*?)['"]/i;
+    return undef unless $src;
+    
+    #some sites put invalid unescaped so we have to unescape twice
+    my $fb_url = uri_unescape(uri_unescape($1)) if $src =~ /href=(.*?)(&|$)/i;
+    #die $src unless $fb_url;
 
-		$node->delete;
-		return $src;
-	}
-	
+    $node->delete;
+    return $src;
+  }
+  
 
-	my @links_1 = $node->look_down(
-		_tag => 'a',
-		sub {
-			defined $_[0]->attr("href") &&
-			$_[0]->attr("href") =~ /(www.)?facebook.com\/plugins\/like.php/
-		}
-	);
+  my @links_1 = $node->look_down(
+    _tag => 'a',
+    sub {
+      defined $_[0]->attr("href") &&
+      $_[0]->attr("href") =~ /(www.)?facebook.com\/plugins\/like.php/
+    }
+  );
 
-	for my $f (@links_1) {
-		$log->warn("found unexpected :". $f->as_HTML);
-		$log->warn("contact developer");
-		die;
-	}
+  for my $f (@links_1) {
+    $log->warn("found unexpected :". $f->as_HTML);
+    $log->warn("contact developer");
+    die;
+  }
 
-	my @links_2 = $node->look_down(
-		_tag => "a",
-		sub {
-			defined $_[0]->attr("href") &&
-			$_[0]->attr("href") =~ /(www\.)?facebook.com\/*/i
+  my @links_2 = $node->look_down(
+    _tag => "a",
+    sub {
+      defined $_[0]->attr("href") &&
+      $_[0]->attr("href") =~ /(www\.)?facebook.com\/*/i
 
-			#$_[0]->attr("href") =~ /(www\.)?facebook.com\/.*/i
-		}
-	);
+      #$_[0]->attr("href") =~ /(www\.)?facebook.com\/.*/i
+    }
+  );
 
-	for my $link (@links_2) {
-		if ($link->attr('href') =~ /\/pages\//) {
-			my $fb_link = $link->attr("href");
-			$node->delete;
-			return $fb_link;	
-		}
+  for my $link (@links_2) {
+    if ($link->attr('href') =~ /\/pages\//) {
+      my $fb_link = $link->attr("href");
+      $node->delete;
+      return $fb_link;  
+    }
 
-		my $uri = URI->new($link->attr("href"));
-		if ($uri->path =~ /^\/([a-zA-Z_]+([a-zA-Z.]+)?)(\w+)(\/)?$/) {
-			my $fb_link = $link->attr("href");
-			$node->delete;
-			return $fb_link;
-		} elsif ($uri->path =~ /\/pages\//) {
-			my $fb_link = $link->attr("href");
-			$node->delete;
-			return $fb_link;	
-		} else {
-			say $uri->path;
-			$log->warn("found fb url: ". $link->attr("href"));
-			$node->delete;
+    my $uri = URI->new($link->attr("href"));
+    if ($uri->path =~ /^\/([a-zA-Z_]+([a-zA-Z.]+)?)(\w+)(\/)?$/) {
+      my $fb_link = $link->attr("href");
+      $node->delete;
+      return $fb_link;
+    } elsif ($uri->path =~ /\/pages\//) {
+      my $fb_link = $link->attr("href");
+      $node->delete;
+      return $fb_link;  
+    } else {
+      say $uri->path;
+      $log->warn("found fb url: ". $link->attr("href"));
+      $node->delete;
 
-			$log->warn("are you sure above is invalid?");
-			sleep 5;
-			return 0;
-		}
-	}
-	
-	return undef;
+      $log->warn("are you sure above is invalid?");
+      sleep 5;
+      return 0;
+    }
+  }
+  
+  return undef;
 }
 
 sub find_tweet_widget {
-	my $content = shift;
+  my $content = shift;
 
-	my $node = HTML::TreeBuilder->new;
-	$node->parse($content);
-	
-	my @links_1 = $node->look_down(
-		_tag => 'a',
-		sub {
-			defined $_[0]->attr("href") &&
-			$_[0]->attr("href") =~ /twitter.com/i 
-		}
-	);
+  my $node = HTML::TreeBuilder->new;
+  $node->parse($content);
+  
+  my @links_1 = $node->look_down(
+    _tag => 'a',
+    sub {
+      defined $_[0]->attr("href") &&
+      $_[0]->attr("href") =~ /twitter.com/i 
+    }
+  );
 
-	for my $f (@links_1) {
-		#next if $f->attr("href") !~ /home\/status\?/;
-		my $link = $f->attr("href");
-		$node->delete;
-		return $link;
-	}
+  for my $f (@links_1) {
+    #next if $f->attr("href") !~ /home\/status\?/;
+    my $link = $f->attr("href");
+    $node->delete;
+    return $link;
+  }
 
-	my @iframes = $node->look_down(
-		_tag => 'iframe',
-		sub { 
-			defined $_[0]->attr("src") && 
-			$_[0]->attr("src") =~ /twitter\.com/i
-		}
-	);
+  my @iframes = $node->look_down(
+    _tag => 'iframe',
+    sub { 
+      defined $_[0]->attr("src") && 
+      $_[0]->attr("src") =~ /twitter\.com/i
+    }
+  );
 
-	for my $f (@iframes) {
-		my $link = $f->as_HTML;
+  for my $f (@iframes) {
+    my $link = $f->as_HTML;
 
-		$node->delete;
-		return undef
-	}
-	$node->delete;
-	return undef;
+    $node->delete;
+    return undef
+  }
+  $node->delete;
+  return undef;
 }
