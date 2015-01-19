@@ -7,8 +7,8 @@ use Data::Dumper;
 
 my $agent = WWW::Mechanize->new();
 my $scope      = 'publish_stream,offline_access';
-my $app_id     = "177879965642759";
-my $app_secret = "21557556a02a3396415fde8f672d0bd5";
+my $app_id     = "xxxx";
+my $app_secret = "xxxx";
 
 $agent->agent_alias("Linux Mozilla");
 
@@ -22,7 +22,7 @@ $agent->get("https://www.facebook.com/login.php");
 
 $agent->submit_form(
   fields => {
-    email => 'email.com',
+    email => 'your@email.com',
     pass => 'foobarfoobar'
   }
 );
