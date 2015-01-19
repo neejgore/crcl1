@@ -22,8 +22,8 @@ $agent->get("https://www.facebook.com/login.php");
 
 $agent->submit_form(
   fields => {
-    email => 'doctor_moron@yahoo.com',
-    pass => 'metalpantera1'
+    email => 'email.com',
+    pass => 'foobarfoobar'
   }
 );
 
